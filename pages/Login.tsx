@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { Target, Lock, ChevronRight, AlertCircle } from 'lucide-react';
+import { Target, Lock, ChevronRight, AlertCircle, Loader2 } from 'lucide-react';
 import { ADMIN_PASSWORD } from '../constants';
 
 interface Props {
-  onLogin: (user: any) => void;
+  onLogin: (user: any) => Promise<{ success: boolean; error?: string }>;
 }
 
 const Login: React.FC<Props> = ({ onLogin }) => {
@@ -12,16 +12,32 @@ const Login: React.FC<Props> = ({ onLogin }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
+
     if (isAdmin) {
-      if (password === ADMIN_PASSWORD) onLogin({ isAdmin: true });
-      else setError('PROTOCOLO: ACESSO NEGADO');
+      if (password === ADMIN_PASSWORD) {
+        await onLogin({ isAdmin: true });
+      } else {
+        setError('PROTOCOLO: ACESSO NEGADO');
+        setIsLoading(false);
+      }
     } else {
-      if (callsign.length < 3) setError('PROTOCOLO: CALLSIGN INVÁLIDO');
-      else onLogin({ callsign: callsign.toUpperCase(), isAdmin: false });
+      if (callsign.length < 3) {
+        setError('PROTOCOLO: CALLSIGN MUITO CURTO (MIN. 3 CARAC.)');
+        setIsLoading(false);
+      } else {
+        const result = await onLogin({ callsign: callsign.toUpperCase(), isAdmin: false });
+        if (!result.success) {
+          setError(result.error || 'ERRO DE AUTENTICAÇÃO');
+          setIsLoading(false);
+        }
+        // Se sucesso, o App.tsx redirecionará via estado
+      }
     }
   };
 
@@ -44,8 +60,9 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                 <input
                   type="text"
                   value={callsign}
+                  disabled={isLoading}
                   onChange={(e) => setCallsign(e.target.value)}
-                  className="w-full bg-black border-4 border-amber-900 focus:border-amber-500 p-5 pl-14 text-2xl text-amber-500 outline-none uppercase font-black tracking-widest placeholder:opacity-20"
+                  className="w-full bg-black border-4 border-amber-900 focus:border-amber-500 p-5 pl-14 text-2xl text-amber-500 outline-none uppercase font-black tracking-widest placeholder:opacity-20 disabled:opacity-50"
                   placeholder="ALPHA-1"
                 />
               </div>
@@ -58,8 +75,9 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                 <input
                   type="password"
                   value={password}
+                  disabled={isLoading}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-black border-4 border-amber-900 focus:border-amber-500 p-5 pl-14 text-2xl text-amber-500 outline-none font-black tracking-widest"
+                  className="w-full bg-black border-4 border-amber-900 focus:border-amber-500 p-5 pl-14 text-2xl text-amber-500 outline-none font-black tracking-widest disabled:opacity-50"
                   placeholder="••••••••"
                 />
               </div>
@@ -67,7 +85,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           )}
 
           {error && (
-            <div className="flex items-center gap-3 bg-red-600 text-black p-4 font-black text-sm border-4 border-red-900">
+            <div className="flex items-center gap-3 bg-red-600 text-black p-4 font-black text-xs border-4 border-red-900 animate-pulse">
               <AlertCircle className="w-6 h-6 shrink-0" />
               <span>{error}</span>
             </div>
@@ -75,16 +93,24 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
           <button
             type="submit"
-            className="w-full bg-amber-500 text-black py-6 font-orbitron font-black text-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-[0_8px_0_#996a00]"
+            disabled={isLoading}
+            className="w-full bg-amber-500 text-black py-6 font-orbitron font-black text-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-[0_8px_0_#996a00] disabled:opacity-50"
           >
-            <span>ENTRAR</span>
-            <ChevronRight className="w-8 h-8" />
+            {isLoading ? (
+              <Loader2 className="w-8 h-8 animate-spin" />
+            ) : (
+              <>
+                <span>ENTRAR</span>
+                <ChevronRight className="w-8 h-8" />
+              </>
+            )}
           </button>
         </form>
 
         <button
           onClick={() => { setIsAdmin(!isAdmin); setError(''); }}
-          className="w-full mt-10 p-3 bg-black border-2 border-amber-900 text-amber-700 font-black text-xs uppercase hover:text-amber-500 transition-colors"
+          disabled={isLoading}
+          className="w-full mt-10 p-3 bg-black border-2 border-amber-900 text-amber-700 font-black text-xs uppercase hover:text-amber-500 transition-colors disabled:opacity-30"
         >
           {isAdmin ? 'MUDAR PARA OPERADOR' : 'MUDAR PARA HQ ADMIN'}
         </button>

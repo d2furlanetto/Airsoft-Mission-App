@@ -8,9 +8,10 @@ import {
   setDoc, 
   getDoc,
   query,
+  where,
   orderBy,
   getDocs,
-  deleteDoc,
+  limit,
   writeBatch
 } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
@@ -46,7 +47,7 @@ const App: React.FC = () => {
         setOpState(prev => prev || {
             name: 'OPERAÇÃO ATIVA',
             description: 'Aguardando ordens do HQ...',
-            mapUrl: 'https://picsum.photos/seed/airsoftmap/1200/800',
+            mapUrl: '',
             missions: [],
             operators: [],
             isActive: true
@@ -76,20 +77,39 @@ const App: React.FC = () => {
   useEffect(() => {
     if (auth.isAuthenticated && auth.user && !('isAdmin' in auth.user)) {
       const currentUser = auth.user as Operator;
-      const stillExists = opState?.operators.some(o => o.id === currentUser.id);
-      if (opState && !stillExists && auth.isAuthenticated) {
+      const updatedUserFromOps = opState?.operators.find(o => o.id === currentUser.id);
+      
+      if (opState && !updatedUserFromOps && auth.isAuthenticated) {
         setAuth({ user: null, isAuthenticated: false });
+      } else if (updatedUserFromOps) {
+        if (JSON.stringify(updatedUserFromOps) !== JSON.stringify(currentUser)) {
+          setAuth(prev => ({ ...prev, user: updatedUserFromOps }));
+        }
       }
     }
   }, [opState?.operators, auth]);
 
-  const handleLogin = async (user: any) => {
+  const handleLogin = async (user: any): Promise<{ success: boolean; error?: string }> => {
     if (user.isAdmin) {
       setAuth({ user: { callsign: 'COMMANDER', isAdmin: true }, isAuthenticated: true });
+      return { success: true };
     } else {
       try {
         const userCred = await signInAnonymously(firebaseAuth);
         const uid = userCred.user.uid;
+        const callsignUpper = user.callsign.toUpperCase();
+
+        // Verificar se este callsign já existe e pertence a outro UID
+        const q = query(collection(db, "operators"), where("callsign", "==", callsignUpper), limit(1));
+        const querySnap = await getDocs(q);
+        
+        if (!querySnap.empty) {
+          const existingOp = querySnap.docs[0].data() as Operator;
+          if (existingOp.id !== uid) {
+            return { success: false, error: 'CONFLITO: CALLSIGN JÁ REQUISITADO POR OUTRO OPERADOR' };
+          }
+        }
+
         const opRef = doc(db, "operators", uid);
         const opSnap = await getDoc(opRef);
 
@@ -98,22 +118,27 @@ const App: React.FC = () => {
         if (!opSnap.exists()) {
           operatorData = {
             id: uid,
-            callsign: user.callsign,
+            callsign: callsignUpper,
             score: 0,
             rank: getRankFromScore(0),
             status: 'ONLINE',
             lastSeen: Date.now(),
-            joinDate: Date.now()
+            joinDate: Date.now(),
+            completedMissions: []
           };
           await setDoc(opRef, operatorData);
         } else {
           operatorData = opSnap.data() as Operator;
+          // Se o usuário logado tentar mudar de nome mas já tiver um cadastro, mantemos o nome original ou atualizamos
+          // Aqui vamos permitir que o usuário logue, mas o callsign é o que está no banco
           await setDoc(opRef, { ...operatorData, status: 'ONLINE', lastSeen: Date.now() }, { merge: true });
         }
 
         setAuth({ user: operatorData, isAuthenticated: true });
+        return { success: true };
       } catch (err) {
         console.error("Login Error:", err);
+        return { success: false, error: 'FALHA NA CONEXÃO COM O HQ' };
       }
     }
   };
@@ -141,7 +166,7 @@ const App: React.FC = () => {
       batch.set(opRef, {
         name: opState?.name || 'NOVA OPERAÇÃO',
         description: 'PROTOCOLO DE REINICIALIZAÇÃO EXECUTADO. TODAS AS MISSÕES FORAM RESETADAS.',
-        mapUrl: opState?.mapUrl || 'https://picsum.photos/seed/airsoftmap/1200/800',
+        mapUrl: opState?.mapUrl || '',
         isActive: true
       });
       await batch.commit();
@@ -169,12 +194,7 @@ const App: React.FC = () => {
                   await setDoc(doc(db, "operators", updated.id), updated, { merge: true });
                   setAuth(prev => ({ ...prev, user: updated }));
                 }}
-                onUpdateMissions={async (missions) => {
-                  for (const m of missions) {
-                    const cleanM = JSON.parse(JSON.stringify(m));
-                    await setDoc(doc(db, "missions", m.id), cleanM, { merge: true });
-                  }
-                }}
+                onUpdateMissions={async (missions) => {}}
               />
             ) : <Navigate to="/login" />
           } />

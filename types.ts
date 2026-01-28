@@ -40,6 +40,7 @@ export interface Operator {
   status: 'ONLINE' | 'KIA' | 'OFFLINE';
   lastSeen: number;
   joinDate: number;
+  completedMissions: string[]; // IDs das missões concluídas individualmente
 }
 
 export interface OperationState {

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Settings, 
   Plus, 
@@ -9,11 +9,17 @@ import {
   Zap, 
   AlertTriangle,
   XCircle,
-  Save
+  Save,
+  Upload,
+  Image as ImageIcon,
+  UserMinus,
+  ShieldAlert,
+  ChevronDown
 } from 'lucide-react';
-import { doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, setDoc, writeBatch, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from '../firebase';
-import { OperationState, Mission, MissionType, MissionStatus } from '../types';
+import { OperationState, Mission, MissionType, MissionStatus, Operator } from '../types';
+import { getRankFromScore } from '../constants';
 
 interface Props {
   opState: OperationState;
@@ -25,6 +31,8 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
   const [activeView, setActiveView] = useState<'missions' | 'operators' | 'config'>('missions');
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState<'none' | 'step1'>('none');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addMission = async (parentId?: string) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -50,7 +58,6 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
   };
 
   const removeMission = async (id: string) => {
-    // Busca a missão no estado atual para confirmar se existe
     const targetMission = opState.missions.find(m => m.id === id);
     if (!targetMission) {
       alert("ERRO: MISSÃO NÃO ENCONTRADA NO SISTEMA");
@@ -64,12 +71,9 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
     if (window.confirm(confirmMsg)) {
       try {
         const batch = writeBatch(db);
-        
-        // Deleta a missão alvo
         const targetRef = doc(db, "missions", id);
         batch.delete(targetRef);
         
-        // Se for uma missão primária, busca e deleta todos os sub-objetivos
         if (!targetMission.parentId) {
           const subMissions = opState.missions.filter(m => m.parentId === id);
           subMissions.forEach(sub => {
@@ -78,9 +82,7 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
           });
         }
         
-        // Aplica as mudanças no Firestore
         await batch.commit();
-        console.log(`Missão ${id} removida com sucesso.`);
       } catch (error) {
         console.error("Erro ao remover missão:", error);
         alert("FALHA NO PROTOCOLO: NÃO FOI POSSÍVEL APAGAR OS DADOS DO HQ");
@@ -100,6 +102,62 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
       console.error("Erro ao atualizar missão:", error);
       alert("ERRO NA TRANSMISSÃO DE DADOS");
     }
+  };
+
+  const handlePenalty = async (operator: Operator) => {
+    const amountStr = window.prompt(`APLICAR PENALIDADE PARA ${operator.callsign}.\nDEDUZIR QUANTOS PONTOS?`, "50");
+    if (amountStr === null) return;
+    
+    const amount = parseInt(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+      alert("VALOR INVÁLIDO.");
+      return;
+    }
+
+    const newScore = Math.max(0, operator.score - amount);
+    const newRank = getRankFromScore(newScore);
+
+    try {
+      await updateDoc(doc(db, "operators", operator.id), {
+        score: newScore,
+        rank: newRank
+      });
+    } catch (error) {
+      alert("ERRO AO APLICAR PENALIDADE.");
+    }
+  };
+
+  const handleKickOperator = async (operator: Operator) => {
+    if (window.confirm(`ALERTA: REMOVER ${operator.callsign} DA OPERAÇÃO?\nO operador será desconectado imediatamente.`)) {
+      try {
+        await deleteDoc(doc(db, "operators", operator.id));
+      } catch (error) {
+        alert("ERRO AO REMOVER OPERADOR.");
+      }
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 800000) {
+      alert("ARQUIVO MUITO GRANDE. LIMITE: 800KB PARA OTIMIZAÇÃO DE CAMPO.");
+      return;
+    }
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      onUpdateOp({ mapUrl: base64String });
+      setIsUploading(false);
+    };
+    reader.onerror = () => {
+      alert("ERRO NA LEITURA DO ARQUIVO");
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const primaryMissions = opState.missions.filter(m => !m.parentId);
@@ -162,7 +220,6 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
                    </div>
                  </div>
 
-                 {/* Lista de Sub-missões */}
                  <div className="ml-8 space-y-2 border-l-4 border-amber-900 pl-4">
                     {opState.missions.filter(m => m.parentId === mission.id).map(sub => (
                       <div key={sub.id} className="p-3 border-2 border-amber-900 bg-black flex items-center justify-between hover:border-amber-600 transition-colors">
@@ -190,14 +247,39 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
                </div>
              )}
              {opState.operators.map(op => (
-               <div key={op.id} className="p-4 border-4 border-amber-900 bg-black flex items-center justify-between hover:border-amber-500 transition-colors">
-                 <div>
-                   <p className="font-black text-amber-500 text-lg">{op.callsign}</p>
-                   <p className="text-[10px] text-amber-700 font-bold uppercase tracking-widest">{op.rank} | STATUS: {op.status}</p>
+               <div key={op.id} className="p-4 border-4 border-amber-900 bg-black flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-amber-500 transition-colors group">
+                 <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-amber-900 flex items-center justify-center font-black text-amber-500 border-2 border-amber-500">
+                      {op.callsign.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-black text-amber-500 text-lg uppercase">{op.callsign}</p>
+                      <p className="text-[10px] text-amber-700 font-bold uppercase tracking-widest">{op.rank} | STATUS: {op.status}</p>
+                    </div>
                  </div>
-                 <div className="text-right">
-                   <p className="text-xs font-black text-amber-700 uppercase">Score</p>
-                   <p className="text-2xl font-black text-amber-500">{op.score} PT</p>
+                 
+                 <div className="flex items-center justify-between md:justify-end gap-6 border-t-2 border-amber-900 md:border-t-0 pt-3 md:pt-0">
+                   <div className="text-right">
+                     <p className="text-[10px] font-black text-amber-700 uppercase">Score</p>
+                     <p className="text-2xl font-black text-amber-500">{op.score} PT</p>
+                   </div>
+                   
+                   <div className="flex gap-2">
+                     <button 
+                       onClick={() => handlePenalty(op)}
+                       className="flex items-center justify-center p-3 bg-amber-900/50 text-amber-500 border-2 border-amber-500 hover:bg-amber-500 hover:text-black transition-all"
+                       title="Aplicar Penalidade"
+                     >
+                       <ShieldAlert className="w-5 h-5" />
+                     </button>
+                     <button 
+                       onClick={() => handleKickOperator(op)}
+                       className="flex items-center justify-center p-3 bg-red-900/50 text-red-500 border-2 border-red-500 hover:bg-red-500 hover:text-black transition-all"
+                       title="Remover Operador"
+                     >
+                       <UserMinus className="w-5 h-5" />
+                     </button>
+                   </div>
                  </div>
                </div>
              ))}
@@ -207,6 +289,7 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
         {activeView === 'config' && (
           <div className="space-y-6 bg-black border-4 border-amber-900 p-6 military-clip">
             <h3 className="font-orbitron font-black text-amber-500 text-xl border-b-2 border-amber-900 pb-2">PARÂMETROS DA OPERAÇÃO</h3>
+            
             <div className="space-y-2">
               <label className="text-xs font-black text-amber-500 uppercase">Designação da Operação</label>
               <input 
@@ -216,21 +299,55 @@ const AdminDashboard: React.FC<Props> = ({ opState, onUpdateOp, onReset }) => {
                 className="w-full bg-black border-4 border-amber-500 p-4 text-amber-500 font-black focus:bg-amber-500/5 outline-none"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black text-amber-500 uppercase">Fonte do Mapa Tático (URL)</label>
-              <input 
-                type="text" 
-                value={opState.mapUrl} 
-                onChange={(e) => onUpdateOp({ mapUrl: e.target.value })}
-                className="w-full bg-black border-4 border-amber-500 p-4 text-amber-500 font-black focus:bg-amber-500/5 outline-none"
-              />
+
+            <div className="space-y-4">
+              <label className="text-xs font-black text-amber-500 uppercase block">Mapa Tático da Operação</label>
+              
+              <div className="flex flex-col gap-4">
+                {opState.mapUrl && (
+                  <div className="relative group border-4 border-amber-900 p-2 bg-black">
+                    <img 
+                      src={opState.mapUrl} 
+                      alt="Mapa Atual" 
+                      className="w-full max-h-48 object-cover grayscale opacity-50 group-hover:opacity-100 transition-opacity"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60">
+                      <ImageIcon className="text-amber-500 w-12 h-12" />
+                    </div>
+                  </div>
+                )}
+
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  ref={fileInputRef}
+                  className="hidden"
+                />
+
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full py-6 border-4 border-amber-500 bg-amber-500/10 text-amber-500 font-black font-orbitron flex items-center justify-center gap-4 hover:bg-amber-500 hover:text-black transition-all disabled:opacity-50"
+                >
+                  {isUploading ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-4 border-amber-500"></div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8" />
+                      CARREGAR NOVO MAPA TÁTICO
+                    </>
+                  )}
+                </button>
+                <p className="text-[9px] text-amber-900 font-black uppercase text-center">ARQUIVOS JPG/PNG/WEBP ATÉ 800KB</p>
+              </div>
             </div>
+
             <p className="text-[10px] text-amber-900 font-bold uppercase mt-4">Alterações no HQ são propagadas em tempo real para todos os terminais de campo.</p>
           </div>
         )}
       </div>
 
-      {/* MODAL DE EDIÇÃO DE MISSÃO */}
       {editingMission && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="w-full max-w-2xl bg-black border-[6px] border-amber-500 p-8 military-clip flex flex-col max-h-[90vh] shadow-[0_0_50px_rgba(255,176,0,0.2)]">
