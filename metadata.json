@@ -1,0 +1,8 @@
+{
+  "name": "O COMANDOS - Tactical Airsoft HQ",
+  "description": "A high-performance mission management platform for tactical airsoft operations, featuring a military HUD aesthetic, real-time mission tracking, and advanced command controls.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

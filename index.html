@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O COMANDOS - Tactical HQ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@100;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --amber: #ffb000;
+            --amber-bright: #ffcc00;
+            --black: #000000;
+        }
+        body {
+            background-color: var(--black);
+            color: var(--amber);
+            font-family: 'JetBrains Mono', monospace;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            -webkit-font-smoothing: none; /* Mantém fontes nítidas */
+        }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        /* Otimização para Sol Intenso: Removemos scanlines e ruído que borram a visão */
+        body::before {
+            display: none;
+        }
+
+        /* Glow mais nítido e menos difuso para não embaçar no sol */
+        .glow-amber {
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.8), 0 0 2px var(--amber);
+        }
+        
+        .border-amber-thick {
+            border: 2px solid var(--amber);
+        }
+        
+        /* Scrollbar mais larga para uso com luvas/dedos suados */
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--amber); border: 2px solid black; }
+
+        .military-clip {
+            clip-path: polygon(
+                0 12px, 12px 0,
+                calc(100% - 12px) 0, 100% 12px,
+                100% calc(100% - 12px), calc(100% - 12px) 100%,
+                12px 100%, 0 calc(100% - 12px)
+            );
+        }
+
+        /* Animação simplificada apenas para alertas críticos */
+        @keyframes pulse-solid {
+            0%, 100% { background-color: var(--amber); color: black; }
+            50% { background-color: black; color: var(--amber); }
+        }
+        .alert-pulse { animation: pulse-solid 1s infinite; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
+    "firebase/": "https://esm.sh/firebase@^12.8.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
