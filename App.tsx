@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-// Use namespace import and cast to any to bypass "no exported member" errors in certain environments where types might be missing or mismatched
-import * as ReactRouterDOM from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { 
   doc, 
   onSnapshot, 
@@ -24,9 +23,6 @@ import HUDLayout from './components/HUDLayout';
 import { AuthState, Operator, OperationState, Mission, MissionStatus, MissionType } from './types';
 import { getRankFromScore } from './constants';
 
-// Destructure from the any-casted namespace to avoid compile-time export checks
-const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
-
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
   const [opState, setOpState] = useState<OperationState | null>(null);
@@ -34,10 +30,9 @@ const App: React.FC = () => {
 
   // 1. Escuta Global do Firestore
   useEffect(() => {
-    // Cast snapshot and data to any to resolve property access issues on 'unknown' or incorrect inference
     const unsubOp = onSnapshot(doc(db, "operation", "main"), (docSnap: any) => {
       if (docSnap.exists()) {
-        const data = docSnap.data() as any;
+        const data = docSnap.data();
         setOpState(prev => ({
           ...prev!,
           name: data.name || 'OPERAÇÃO DESCONHECIDA',
@@ -48,7 +43,6 @@ const App: React.FC = () => {
           operators: prev?.operators || []
         }));
       } else {
-        // Fallback for missing operation doc
         setOpState(prev => prev || {
             name: 'OPERAÇÃO ATIVA',
             description: 'Aguardando ordens do HQ...',
@@ -61,13 +55,11 @@ const App: React.FC = () => {
     });
 
     const unsubMissions = onSnapshot(collection(db, "missions"), (snap: any) => {
-      // Cast snap to any to access .docs property which the compiler erroneously thinks is missing
       const missions = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })) as Mission[];
       setOpState(prev => prev ? { ...prev, missions } : null);
     });
 
     const unsubOperators = onSnapshot(query(collection(db, "operators"), orderBy("score", "desc")), (snap: any) => {
-      // Cast snap to any to access .docs property
       const operators = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })) as Operator[];
       setOpState(prev => prev ? { ...prev, operators } : null);
       setLoading(false);
@@ -139,18 +131,12 @@ const App: React.FC = () => {
   const handleForcedReset = async () => {
     try {
       const batch = writeBatch(db);
-
-      // Do NOT delete missions, but reset their status to ACTIVE
       const missionSnap = await getDocs(collection(db, "missions"));
       missionSnap.forEach((d) => {
         batch.update(d.ref, { status: MissionStatus.ACTIVE });
       });
-
-      // Delete all operators to reset leaderboard and force logouts
       const operatorSnap = await getDocs(collection(db, "operators"));
       operatorSnap.forEach((d) => batch.delete(d.ref));
-
-      // Reset operation document info
       const opRef = doc(db, "operation", "main");
       batch.set(opRef, {
         name: opState?.name || 'NOVA OPERAÇÃO',
@@ -158,12 +144,9 @@ const App: React.FC = () => {
         mapUrl: opState?.mapUrl || 'https://picsum.photos/seed/airsoftmap/1200/800',
         isActive: true
       });
-
       await batch.commit();
-      console.log("Forced Reset (Mission Reset) executed successfully.");
     } catch (error) {
-      console.error("Error during forced reset:", error);
-      alert("ERRO CRÍTICO DURANTE O RESET. VERIFIQUE O CONSOLE.");
+      console.error("Reset Error:", error);
     }
   };
 
@@ -188,7 +171,6 @@ const App: React.FC = () => {
                 }}
                 onUpdateMissions={async (missions) => {
                   for (const m of missions) {
-                    // Clean undefined fields for Firestore (specifically parentId)
                     const cleanM = JSON.parse(JSON.stringify(m));
                     await setDoc(doc(db, "missions", m.id), cleanM, { merge: true });
                   }

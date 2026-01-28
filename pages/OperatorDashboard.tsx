@@ -64,7 +64,6 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* Header com Alto Contraste */}
       <div className="bg-black border-4 border-amber-500 p-5 flex items-center justify-between military-clip">
         <div className="flex items-center gap-5">
           <div className="w-14 h-14 border-4 border-amber-500 flex items-center justify-center bg-amber-500">
@@ -86,7 +85,6 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
         </div>
       </div>
 
-      {/* Navegação de Abas - Botões Maiores e Sólidos */}
       <div className="flex gap-2 font-orbitron">
         {[
           { id: 'briefing', icon: FileText, label: 'MISSÕES' },
@@ -108,7 +106,6 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
         ))}
       </div>
 
-      {/* Conteúdo Otimizado */}
       <div className="flex-1 overflow-auto pb-6">
         {activeTab === 'briefing' && (
           <div className="space-y-6">
@@ -116,7 +113,6 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
               const subMissions = opState.missions.filter(m => m.parentId === mission.id);
               return (
                 <div key={mission.id} className="space-y-2">
-                  {/* Primary Card */}
                   <div 
                     onClick={() => mission.status === MissionStatus.ACTIVE && setSelectedMission(mission)}
                     className={`p-5 border-4 group transition-all cursor-pointer ${
@@ -149,10 +145,8 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
                     </div>
                   </div>
 
-                  {/* Indicated Sub Missions */}
                   {subMissions.length > 0 && (
                     <div className="ml-8 space-y-2 border-l-4 border-amber-900 pl-4">
-                      <p className="text-[10px] font-black text-amber-700 uppercase mb-1">Sub-objetivos táticos</p>
                       {subMissions.map(sub => (
                         <div 
                           key={sub.id}
@@ -188,7 +182,6 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
         {activeTab === 'map' && (
           <div className="h-[400px] border-4 border-amber-500 relative bg-black overflow-hidden">
             <img src={opState.mapUrl} alt="Tactical Map" className="w-full h-full object-cover grayscale brightness-150 contrast-150" />
-            <div className="absolute inset-0 border-[16px] border-black/20 pointer-events-none"></div>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
               <Target className="w-16 h-16 text-amber-500 opacity-80" />
             </div>
@@ -215,7 +208,6 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
         )}
       </div>
 
-      {/* Modal de Validação */}
       {selectedMission && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 bg-black animate-in zoom-in-95 duration-200">
           <div className="w-full h-full max-w-2xl bg-black border-[6px] border-amber-500 p-6 flex flex-col relative overflow-y-auto">
@@ -225,20 +217,15 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
             >
               <XCircle className="w-10 h-10" />
             </button>
-
             <div className="mt-8 mb-4">
               <span className={`px-3 py-1 font-black text-xs ${selectedMission.parentId ? 'bg-blue-600 text-black' : 'bg-amber-500 text-black'}`}>
                 {selectedMission.parentId ? 'SUB-OBJETIVO OPERACIONAL' : 'OBJETIVO PRIMÁRIO'}
               </span>
-              <h2 className="font-orbitron text-3xl font-black mt-4 text-amber-500 leading-none uppercase">{selectedMission.title}</h2>
+              <h2 className="font-orbitron text-3xl font-black mt-4 text-amber-500 uppercase">{selectedMission.title}</h2>
             </div>
-            
             <div className="bg-amber-900/20 border-l-8 border-amber-500 p-5 mb-6">
-              <p className="text-lg font-bold leading-tight text-amber-500">
-                {selectedMission.description}
-              </p>
+              <p className="text-lg font-bold text-amber-500">{selectedMission.description}</p>
             </div>
-
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="p-4 border-4 border-amber-500 bg-amber-500 text-black">
                 <p className="text-[10px] font-black mb-1">RECOMPENSA</p>
@@ -255,46 +242,21 @@ const OperatorDashboard: React.FC<Props> = ({ opState, operator, onUpdateOperato
                 </div>
               </div>
             </div>
-
-            {feedback && (
-              <div className={`mb-6 p-4 border-4 font-black text-center ${
-                feedback.type === 'success' ? 'border-green-500 bg-green-500 text-black' : 'border-red-500 bg-red-500 text-black'
-              }`}>
-                {feedback.msg}
-              </div>
-            )}
-
             <div className="mt-auto space-y-4 pb-10">
               <input 
                 type="text"
                 value={validationCode}
                 onChange={(e) => setValidationCode(e.target.value.toUpperCase())}
                 placeholder="CÓDIGO MANUAL"
-                className="w-full bg-black border-4 border-amber-500 p-5 text-center text-3xl font-black tracking-[0.3em] text-amber-500 placeholder:opacity-30 outline-none"
+                className="w-full bg-black border-4 border-amber-500 p-5 text-center text-3xl font-black text-amber-500 outline-none"
               />
-              
-              <div className="flex gap-4 h-24">
-                <button 
-                  onClick={() => handleValidate(selectedMission.id, validationCode)}
-                  disabled={!validationCode || !canValidate}
-                  className="flex-1 bg-amber-500 text-black font-orbitron font-black text-2xl disabled:opacity-30 disabled:bg-amber-900 transition-all active:scale-95 shadow-[0_6px_0_#996a00]"
-                >
-                  CONFIRMAR
-                </button>
-                <button 
-                  disabled={!canValidate}
-                  className="w-24 border-4 border-amber-500 flex items-center justify-center bg-black disabled:opacity-30 active:bg-amber-950"
-                >
-                  <QrCode className="w-12 h-12 text-amber-500" />
-                </button>
-              </div>
-
-              {!canValidate && (
-                <div className="flex items-center justify-center gap-2 bg-red-600 text-black p-3 font-black text-sm border-2 border-red-900">
-                  <AlertTriangle className="w-5 h-5" />
-                  PROTOCOLO DE SEGURANÇA: {timeRemainingForValidation}m PARA LIBERAÇÃO
-                </div>
-              )}
+              <button 
+                onClick={() => handleValidate(selectedMission.id, validationCode)}
+                disabled={!validationCode || !canValidate}
+                className="w-full bg-amber-500 text-black py-6 font-orbitron font-black text-2xl disabled:opacity-30"
+              >
+                CONFIRMAR
+              </button>
             </div>
           </div>
         </div>
