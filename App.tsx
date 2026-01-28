@@ -14,14 +14,14 @@ import {
   writeBatch
 } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
-import { db, auth as firebaseAuth } from './firebase';
+import { db, auth as firebaseAuth } from './firebase.ts';
 
-import Login from './pages/Login';
-import OperatorDashboard from './pages/OperatorDashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import HUDLayout from './components/HUDLayout';
-import { AuthState, Operator, OperationState, Mission, MissionStatus, MissionType } from './types';
-import { getRankFromScore } from './constants';
+import Login from './pages/Login.tsx';
+import OperatorDashboard from './pages/OperatorDashboard.tsx';
+import AdminDashboard from './pages/AdminDashboard.tsx';
+import HUDLayout from './components/HUDLayout.tsx';
+import { AuthState, Operator, OperationState, Mission, MissionStatus, MissionType } from './types.ts';
+import { getRankFromScore } from './constants.ts';
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
