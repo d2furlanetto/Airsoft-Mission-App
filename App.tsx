@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+// Use namespace import and cast to any to bypass "no exported member" errors in certain environments where types might be missing or mismatched
+import * as ReactRouterDOM from 'react-router-dom';
 import { 
   doc, 
   onSnapshot, 
@@ -14,14 +15,17 @@ import {
   writeBatch
 } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
-import { db, auth as firebaseAuth } from './firebase.ts';
+import { db, auth as firebaseAuth } from './firebase';
 
-import Login from './pages/Login.tsx';
-import OperatorDashboard from './pages/OperatorDashboard.tsx';
-import AdminDashboard from './pages/AdminDashboard.tsx';
-import HUDLayout from './components/HUDLayout.tsx';
-import { AuthState, Operator, OperationState, Mission, MissionStatus, MissionType } from './types.ts';
-import { getRankFromScore } from './constants.ts';
+import Login from './pages/Login';
+import OperatorDashboard from './pages/OperatorDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import HUDLayout from './components/HUDLayout';
+import { AuthState, Operator, OperationState, Mission, MissionStatus, MissionType } from './types';
+import { getRankFromScore } from './constants';
+
+// Destructure from the any-casted namespace to avoid compile-time export checks
+const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
 
 const App: React.FC = () => {
   const [auth, setAuth] = useState<AuthState>({ user: null, isAuthenticated: false });
@@ -30,9 +34,10 @@ const App: React.FC = () => {
 
   // 1. Escuta Global do Firestore
   useEffect(() => {
-    const unsubOp = onSnapshot(doc(db, "operation", "main"), (docSnap) => {
+    // Cast snapshot and data to any to resolve property access issues on 'unknown' or incorrect inference
+    const unsubOp = onSnapshot(doc(db, "operation", "main"), (docSnap: any) => {
       if (docSnap.exists()) {
-        const data = docSnap.data();
+        const data = docSnap.data() as any;
         setOpState(prev => ({
           ...prev!,
           name: data.name || 'OPERAÇÃO DESCONHECIDA',
@@ -55,13 +60,15 @@ const App: React.FC = () => {
       }
     });
 
-    const unsubMissions = onSnapshot(collection(db, "missions"), (snap) => {
-      const missions = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Mission[];
+    const unsubMissions = onSnapshot(collection(db, "missions"), (snap: any) => {
+      // Cast snap to any to access .docs property which the compiler erroneously thinks is missing
+      const missions = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })) as Mission[];
       setOpState(prev => prev ? { ...prev, missions } : null);
     });
 
-    const unsubOperators = onSnapshot(query(collection(db, "operators"), orderBy("score", "desc")), (snap) => {
-      const operators = snap.docs.map(d => ({ id: d.id, ...d.data() })) as Operator[];
+    const unsubOperators = onSnapshot(query(collection(db, "operators"), orderBy("score", "desc")), (snap: any) => {
+      // Cast snap to any to access .docs property
+      const operators = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })) as Operator[];
       setOpState(prev => prev ? { ...prev, operators } : null);
       setLoading(false);
     });
@@ -173,7 +180,7 @@ const App: React.FC = () => {
           <Route path="/operator" element={
             auth.isAuthenticated && !('isAdmin' in auth.user!) ? (
               <OperatorDashboard 
-                opState={opState} 
+                opState={opState!} 
                 operator={auth.user as Operator}
                 onUpdateOperator={async (updated) => {
                   await setDoc(doc(db, "operators", updated.id), updated, { merge: true });
@@ -193,7 +200,7 @@ const App: React.FC = () => {
           <Route path="/admin" element={
             auth.isAuthenticated && 'isAdmin' in auth.user! ? (
               <AdminDashboard 
-                opState={opState} 
+                opState={opState!} 
                 onUpdateOp={async (updates) => {
                    if (updates.name || updates.description || updates.mapUrl) {
                      await setDoc(doc(db, "operation", "main"), updates, { merge: true });

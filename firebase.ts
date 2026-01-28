@@ -1,6 +1,10 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
@@ -16,5 +20,15 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+// initializeFirestore allows us to configure low-level networking and cache settings
+export const db = initializeFirestore(app, {
+  // Use long-polling to bypass WebSocket connectivity issues in restricted environments
+  experimentalForceLongPolling: true,
+  // Enable persistent local cache so the tactical HQ stays functional offline or during blips
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
+
 export const auth = getAuth(app);
